@@ -3,7 +3,7 @@
 /**
  * Common function to trigger GitHub Workflow
  */
-async function triggerWorkflow(env, { program_name, stream_url, duration }) {
+async function triggerWorkflow(env, { program_name, stream_url, duration, scheduled_time }) {
   const githubToken = env.GITHUB_TOKEN;
   if (!githubToken) {
     console.error("GITHUB_TOKEN not configured");
@@ -25,7 +25,7 @@ async function triggerWorkflow(env, { program_name, stream_url, duration }) {
           program_name,
           stream_url,
           duration: String(duration),
-          scheduled_time: task.scheduled_time || "" // KST HH:MM
+          scheduled_time: scheduled_time || "" // KST HH:MM
         }
       })
     }
