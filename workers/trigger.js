@@ -24,7 +24,8 @@ async function triggerWorkflow(env, { program_name, stream_url, duration }) {
         inputs: {
           program_name,
           stream_url,
-          duration: String(duration)
+          duration: String(duration),
+          scheduled_time: task.scheduled_time || "" // KST HH:MM
         }
       })
     }

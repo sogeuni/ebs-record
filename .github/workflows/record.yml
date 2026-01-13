@@ -15,6 +15,10 @@ on:
         description: "Duration (seconds)"
         required: true
         default: "10"
+      scheduled_time:
+        description: "Scheduled Start Time (KST HH:MM)"
+        required: false
+        default: ""
 
 jobs:
   record:
@@ -47,7 +51,7 @@ jobs:
           # Ensure clean state (remove pycache)
           find . -type d -name "__pycache__" -exec rm -rf {} +
 
-          python3 src/recorder.py "${{ inputs.stream_url }}" ${{ inputs.duration }} "${{ inputs.program_name }}"
+          python3 src/recorder.py "${{ inputs.stream_url }}" ${{ inputs.duration }} "${{ inputs.program_name }}" --scheduled_time "${{ inputs.scheduled_time }}"
 
       - name: Deploy to Publish Branch
         run: |

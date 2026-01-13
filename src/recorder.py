@@ -6,74 +6,57 @@ import os
 import time
 from rss_gen import generate_rss
 
-def wait_for_start_time():
+def wait_for_start_time(scheduled_time_str=None):
     """
-    Waits until the beginning of the next minute (second 00).
-    Cloudflare triggers should be set to 1 minute early (e.g., 59).
-    This function will then sleep until 00 seconds of the next minute for precise start.
+    Waits until the scheduled start time in KST (UTC+9).
+    If scheduled_time_str (HH:MM) is provided:
+      - Calculate target datetime in KST.
+      - If current KST < target: Wait difference.
+      - If current KST >= target: Return immediately (no wait).
+    If not provided:
+      - Implicit behavior: Wait for next minute :00 if close to minute end?
+      - Or just return immediately (logic removed in previous step, implicitly).
+      - Let's restore simple next-minute alignment if no time is given?
+      - User said "If start_time is missing, behave as before?"
+      - Actually, user just said "If before start_time, sleep; if after, run immediately".
+      - So I will implement exactly that.
     """
-    now = datetime.datetime.now()
-    # Target the next full minute? 
-    # Actually, if we trigger at 58, we might want to wait for 00.
-    # But for simplicity and robustness, let's just align to the next 00 seconds
-    # UNLESS we are already currently at 00 (rare).
+    kst_timezone = datetime.timezone(datetime.timedelta(hours=9))
+    now_kst = datetime.datetime.now(kst_timezone)
     
-    # However, user wants SPECIFIC time. 
-    # Let's simple wait until the seconds are 00.
-    # If we are at 58:50, we wait 10s -> 59:00. 
-    # If our goal is 00:00 (2 mins later), we might need an argument.
-    # But wait, if we just wait for the next :00, we might record at 59:00 instead of 00:00.
-    #
-    # Revised strategy: receive `target_time` from arguments would be best,
-    # but to keep it simple without changing yml schema too much:
-    # Just wait until `datetime.datetime.now().second == 0`? 
-    # If we trigger 2 mins early, we might Record 1 min early if we just wait for "next :00".
-    
-    # LET'S DO THIS:
-    # We will pass an argument --wait-seconds if needed, OR:
-    # Just print "Waiting for next minute start..." and wait for `second=0`.
-    # And we rely on the Schedule to be `*-1 minute` or `*-2 minute`?
-    # Actually, if we set cron to `58`, and we wait for `00`, we might hit `59:00`.
-    # We need to hit `00:00`.
-    
-    # Better approach:
-    # We assume the program starts at specific 10-minute intervals usually (or 5 min).
-    # Let's add a robust wait:
-    # Calculate seconds until next 5-minute mark? Or next 1-minute mark?
-    # User said "5분마다... 5분 0초에 실행되길".
-    # So if it runs at 4:53, we want to wait for 5:00. (7s wait)
-    # If it runs at 3:53 (early trigger), we want to wait for 5:00 (67s wait).
-    
-    # Let's take an optional argument for "Wait until next X minute mark" or simply:
-    # "Wait until the start of the next minute that is a multiple of 5?" -> Test only.
-    # For real usage (Easy English 7:20), we need to wait for 7:20:00.
-    
-    # Simplest universal fix:
-    # Add `--precise-start` flag.
-    # If set, wait until `seconds == 0`.
-    # AND, if we want to support 2-min early trigger, maybe we need to wait until `minute % 5 == 0`?
-    # No, that breaks 7:20 (ok) but also 7:22 (if schedule changes).
-    
-    # PROPOSAL:
-    # Just wait for the next `second==0`.
-    # AND update Cloudflare to trigger at `XX:59` (1 min early).
-    # Then we wait max 60 seconds. Usually we will be at `59:20` -> wait 40s -> `00:00`.
-    # This is safe and simple.
-    
-    next_minute = (now + datetime.timedelta(minutes=1)).replace(second=0, microsecond=0)
-    wait_seconds = (next_minute - now).total_seconds()
-    
-    print(f"Current time: {now.strftime('%H:%M:%S')}")
-    print(f"Waiting {wait_seconds:.2f}s for precise start at {next_minute.strftime('%H:%M:%S')}...")
-    
-    time.sleep(wait_seconds)
-    print(f"Resuming at: {datetime.datetime.now().strftime('%H:%M:%S')}")
+    if scheduled_time_str:
+        try:
+            # Parse HH:MM
+            target_hm = datetime.datetime.strptime(scheduled_time_str, "%H:%M").time()
+            target_time = now_kst.replace(hour=target_hm.hour, minute=target_hm.minute, second=0, microsecond=0)
+            
+            # If target is much earlier (e.g. yesterday's time?), handle wrapping?
+            # Assuming broadcast is "today".
+            # BUT: If we trigger at 23:59 UTC (08:59 KST) for a 09:00 KST show, it works.
+            # If we trigger at 07:18 KST for 07:20 KST show.
+            
+            diff = (target_time - now_kst).total_seconds()
+            
+            if diff > 0:
+                print(f"[Wait] Current KST: {now_kst.strftime('%H:%M:%S')}")
+                print(f"[Wait] Scheduled KST: {target_time.strftime('%H:%M:%S')}")
+                print(f"[Wait] Sleeping for {diff:.2f} seconds...")
+                time.sleep(diff)
+                print(f"[Wait] Resuming at {datetime.datetime.now(kst_timezone).strftime('%H:%M:%S')}")
+            else:
+                print(f"[Wait] Current KST ({now_kst.strftime('%H:%M:%S')}) is past scheduled time ({target_time.strftime('%H:%M:%S')}). Starting immediately.")
+        except ValueError as e:
+            print(f"[Wait Warning] Invalid scheduled_time format: {scheduled_time_str} ({e})")
+            pass
+    else:
+        # Fallback: Just align to next second 00 if needed?
+        # Or simple immediate start.
+        # Given "Safe to run late", we can just return.
+        pass
 
-def record_stream(url, duration, program_name):
-    # ... (header same)
-    
+def record_stream(url, duration, program_name, scheduled_time=None):
     # Wait for precise start
-    wait_for_start_time()
+    wait_for_start_time(scheduled_time)
 
     # Generate timestamp (YYYYMMDD_HHMMSS) in KST (UTC+9)
     kst_timezone = datetime.timezone(datetime.timedelta(hours=9))
@@ -137,7 +120,8 @@ if __name__ == "__main__":
     parser.add_argument("url", help="Streaming URL (e.g., m3u8)")
     parser.add_argument("duration", type=int, help="Recording duration (seconds)")
     parser.add_argument("program_name", help="Program name")
+    parser.add_argument("--scheduled_time", help="Scheduled start time (HH:MM KST)", default=None)
 
     args = parser.parse_args()
     
-    record_stream(args.url, args.duration, args.program_name)
+    record_stream(args.url, args.duration, args.program_name, args.scheduled_time)
