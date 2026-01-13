@@ -8,3 +8,6 @@ __pycache__/
 
 # Ignore config (if specific to environment)
 # config.json
+
+# Wrangler
+.wrangler/
