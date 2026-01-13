@@ -65,43 +65,40 @@ export default {
         }
     }
 
-    // GET Proxy: Serve files from GitHub Pages
-    // Map /program/file -> PAGES_URL/recordings/program/file
-    // Map /recordings/program/file -> PAGES_URL/recordings/program/file (Support both if user includes recordings/)
+    // GET Proxy: Serve files from GitHub Raw (Private Repo Support)
+    // Needs GITHUB_TOKEN in headers
     if (request.method === "GET") {
-        const pagesUrl = env.PAGES_URL || "https://sogeuni.github.io/record-stream";
+        const rawUrl = env.RAW_URL || "https://raw.githubusercontent.com/sogeuni/ebs-record/publish";
         
-        // Handle root request
         if (url.pathname === "/") {
-             return new Response("EBS Record Worker is Running.", { status: 200 });
+             return new Response("EBS Record Worker (Private Proxy) is Running.", { status: 200 });
         }
 
         let targetPath = url.pathname;
-        
-        // If the path already starts with /recordings, we just append it to pagesUrl (assuming pagesUrl is root)
-        // BUT pagesUrl is `.../recordings`? No, pagesUrl is `.../record-stream` usually.
-        // Let's assume env.PAGES_URL is "https://sogeuni.github.io/record-stream"
-        
-        // Strategy: We want to support:
-        // 1. /test/feed.xml -> gets /recordings/test/feed.xml
-        // 2. /recordings/test/feed.xml -> gets /recordings/test/feed.xml (idempotent)
-        
         let finalTargetUrl = "";
         
+        // We expect path like /test/feed.xml -> Raw URL need /recordings/test/feed.xml if structure is kept
         if (targetPath.startsWith("/recordings/")) {
-             finalTargetUrl = `${pagesUrl}${targetPath}`;
+             finalTargetUrl = `${rawUrl}${targetPath}`;
         } else {
-             finalTargetUrl = `${pagesUrl}/recordings${targetPath}`;
+             finalTargetUrl = `${rawUrl}/recordings${targetPath}`;
         }
         
-        console.log(`[Proxy] Fetching: ${finalTargetUrl}`);
+        console.log(`[Proxy] Fetching Raw: ${finalTargetUrl}`);
 
         try {
             const response = await fetch(finalTargetUrl, {
                 headers: {
-                    "User-Agent": "Cloudflare-Worker-Proxy"
+                    "User-Agent": "Cloudflare-Worker-Proxy",
+                    "Authorization": `Bearer ${env.GITHUB_TOKEN}` // AUTHENTICATION!
                 }
             });
+            
+            if (!response.ok) {
+                 console.error(`[Proxy] Upstream Error: ${response.status}`);
+                 if (response.status === 404) return new Response("File not found on GitHub", { status: 404 });
+                 if (response.status === 403) return new Response("Access Denied (Token Error?)", { status: 403 });
+            }
 
             return new Response(response.body, {
                 status: response.status,

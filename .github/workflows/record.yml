@@ -46,35 +46,38 @@ jobs:
         run: |
           python3 src/recorder.py "${{ inputs.stream_url }}" ${{ inputs.duration }} "${{ inputs.program_name }}"
 
-      - name: Commit and Push to Main
+      - name: Deploy to Publish Branch
         run: |
-          # 1. Define Variables
-          PROGRAM_NAME="${{ inputs.program_name }}"
-          # Replace spaces with hyphens for folder name
-          SAFE_PROGRAM_NAME="${PROGRAM_NAME// /-}"
-
-          echo "Processing for: $SAFE_PROGRAM_NAME"
-
-          # 2. Configure Git
+          # 1. Setup Identity
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # 3. Add files (recorder.py writes to recordings/safe-name/)
-          # Force add if .gitignore prevents it, though recordings/ should be visible now
-          git add recordings/$SAFE_PROGRAM_NAME/*.m4a
-          git add recordings/$SAFE_PROGRAM_NAME/feed.xml || true 
+          # 2. Preserve Recordings
+          # We want to keep the history of the publish branch, so we fetch it.
+          # But simpler: use a dedicated action or manual orphan reset?
+          # Let's use manual fetch and merge to keep history.
 
-          # 4. Commit and Push
-          # Only commit if there are changes
+          git fetch origin publish:publish || git checkout --orphan publish
+
+          # 3. Move new recordings to a safe place
+          mkdir -p /tmp/new_recordings
+          cp -r recordings/* /tmp/new_recordings/
+
+          # 4. Switch to publish branch
+          git checkout publish
+
+          # 5. Restore recordings (Keep existing ones, overwrite new ones)
+          # We need to make sure we don't delete old files on the branch.
+          # Check if recordings dir exists in this branch
+          mkdir -p recordings
+          cp -r /tmp/new_recordings/* recordings/
+
+          # 6. Commit and Push
+          git add recordings/
+
           if git diff --staged --quiet; then
             echo "No changes to commit."
           else
-            git commit -m "Add recording: $SAFE_PROGRAM_NAME ($(date +'%Y-%m-%d %H:%M'))"
-            
-            # Clean up config.json to avoid rebase error (unstaged changes)
-            git checkout -- config.json || true
-            
-            # Pull with rebase to handle concurrent pushes
-            git pull --rebase origin main
-            git push origin main
+            git commit -m "Add recording: ${{ inputs.program_name }} ($(date +'%Y-%m-%d %H:%M'))"
+            git push origin publish
           fi
