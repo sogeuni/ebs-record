@@ -35,13 +35,6 @@ jobs:
       - name: Setup FFmpeg
         uses: AnimMouse/setup-ffmpeg@v1
 
-      - name: Create Config
-        # Create config.json dynamically setting base_url for GitHub Pages
-        run: |
-          echo '{
-            "base_url": "https://sogeuni.github.io/record-stream"
-          }' > config.json
-
       - name: Run Recorder
         run: |
           python3 src/recorder.py "${{ inputs.stream_url }}" ${{ inputs.duration }} "${{ inputs.program_name }}"
