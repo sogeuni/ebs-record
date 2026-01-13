@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+  <channel>
+    <title>test</title>
+    <description>Podcast feed for test</description>
+    <link>https://sogeuni.github.io/record-stream</link>
+    <language>ko-kr</language>
+    <itunes:author>Record Stream</itunes:author>
+    <itunes:image href="https://sogeuni.github.io/record-stream/image.jpg"/>
+
+    <item>
+      <title>test_20260113_071608.m4a</title>
+      <description>Recorded on 2026-01-13 07:16</description>
+      <pubDate>Tue, 13 Jan 2026 07:16:52 +0900</pubDate>
+      <enclosure url="https://sogeuni.github.io/record-stream/test/test_20260113_071608.m4a" length="374067" type="audio/mp4"/>
+      <guid isPermaLink="false">test_20260113_071608.m4a</guid>
+    </item>
+  </channel>
+</rss>
