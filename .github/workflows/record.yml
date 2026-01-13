@@ -46,14 +46,7 @@ jobs:
         run: |
           python3 src/recorder.py "${{ inputs.stream_url }}" ${{ inputs.duration }} "${{ inputs.program_name }}"
 
-      - name: Checkout publish branch
-        uses: actions/checkout@v4
-        with:
-          ref: publish
-          path: publish_branch
-          fetch-depth: 0
-
-      - name: Deploy to publish branch
+      - name: Commit and Push to Main
         run: |
           # 1. Define Variables
           PROGRAM_NAME="${{ inputs.program_name }}"
@@ -62,19 +55,22 @@ jobs:
 
           echo "Processing for: $SAFE_PROGRAM_NAME"
 
-          # 2. Prepare Directory in publish branch
-          mkdir -p publish_branch/$SAFE_PROGRAM_NAME
-
-          # 3. Copy new files (m4a and feed.xml)
-          # Note: recorder.py saves to .recordings/safe-name/
-          cp .recordings/$SAFE_PROGRAM_NAME/*.m4a publish_branch/$SAFE_PROGRAM_NAME/
-          cp .recordings/$SAFE_PROGRAM_NAME/feed.xml publish_branch/$SAFE_PROGRAM_NAME/
-
-          # 4. Commit and Push
-          cd publish_branch
+          # 2. Configure Git
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add .
-          git commit -m "Add recording: $SAFE_PROGRAM_NAME ($(date +'%Y-%m-%d %H:%M'))"
-          git push origin publish
+          # 3. Add files (recorder.py writes to recordings/safe-name/)
+          # Force add if .gitignore prevents it, though recordings/ should be visible now
+          git add recordings/$SAFE_PROGRAM_NAME/*.m4a
+          git add recordings/$SAFE_PROGRAM_NAME/feed.xml || true 
+
+          # 4. Commit and Push
+          # Only commit if there are changes
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Add recording: $SAFE_PROGRAM_NAME ($(date +'%Y-%m-%d %H:%M'))"
+            # Pull with rebase to handle concurrent pushes
+            git pull --rebase origin main
+            git push origin main
+          fi

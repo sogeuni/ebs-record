@@ -32,7 +32,7 @@ def generate_rss(program_name, base_url=None):
     
     # Define paths
     safe_program_name = program_name.replace(" ", "-")
-    recordings_dir = os.path.join(".recordings", safe_program_name)
+    recordings_dir = os.path.join("recordings", safe_program_name)
     rss_path = os.path.join(recordings_dir, "feed.xml")
     
     if not os.path.exists(recordings_dir):

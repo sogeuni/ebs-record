@@ -21,8 +21,8 @@ def record_stream(url, duration, program_name):
     # Replace spaces in program name with hyphens
     safe_program_name = program_name.replace(" ", "-")
     
-    # Define output directory: .recordings/program-name/
-    base_dir = ".recordings"
+    # Define output directory: recordings/program-name/
+    base_dir = "recordings"
     program_dir = os.path.join(base_dir, safe_program_name)
     
     # Create directory if it doesn't exist
