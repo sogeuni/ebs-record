@@ -142,4 +142,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     
-    record_stream(args.url, args.duration, args.program_name)
+    record_stream(args.url, args.duration, args.program_name, args.start_time)

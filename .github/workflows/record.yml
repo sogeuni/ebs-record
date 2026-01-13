@@ -35,8 +35,19 @@ jobs:
       - name: Setup FFmpeg
         uses: AnimMouse/setup-ffmpeg@v1
 
+      - name: Restore existing RSS Feed
+        continue-on-error: true
+        run: |
+          # Try to fetch existing feed.xml from publish branch
+          mkdir -p recordings/${{ inputs.program_name }}
+          git show origin/publish:${{ inputs.program_name }}/feed.xml > recordings/${{ inputs.program_name }}/feed.xml 2>/dev/null || echo "No existing feed.xml found, starting fresh."
+
       - name: Run Recorder
         run: |
+          # Ensure clean state (remove pycache)
+          find . -type d -name "__pycache__" -exec rm -rf {} +
+
+          CMD="python3 src/recorder.py \"${{ inputs.stream_url }}\" ${{ inputs.duration }} \"${{ inputs.program_name }}\""
           python3 src/recorder.py "${{ inputs.stream_url }}" ${{ inputs.duration }} "${{ inputs.program_name }}"
 
       - name: Deploy to Publish Branch
