@@ -63,6 +63,11 @@ jobs:
           mkdir -p /tmp/new_recordings
           cp -r recordings/* /tmp/new_recordings/
 
+          # 3.5 CLEANUP: Remove local changes to allow checkout
+          # The generated files prevent switching branches if they conflict.
+          git reset --hard
+          git clean -fd
+
           # 4. Switch to publish branch
           git checkout publish
 
