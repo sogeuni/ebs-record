@@ -1,5 +1,5 @@
 {
-    "base_url": "http://my-podcast-site.com",
+    "base_url": "https://ebs-record.sogeuni.workers.dev",
     "timezone": "Asia/Seoul",
     "description": "Auto-generated record stream podcast"
 }

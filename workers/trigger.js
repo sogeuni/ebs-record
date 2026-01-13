@@ -47,7 +47,7 @@ export default {
     const url = new URL(request.url);
 
     // POST /: Trigger workflow
-    if (request.method === "POST") {
+    if (request.method === "POST" && url.pathname === "/") {
         try {
             const { program_name, stream_url, duration } = await request.json();
     
@@ -65,7 +65,56 @@ export default {
         }
     }
 
-    return new Response("Method Not Allowed. Only POST / is supported for manual triggers.", { status: 405 });
+    // GET Proxy: Serve files from GitHub Pages
+    // Map /program/file -> PAGES_URL/recordings/program/file
+    // Map /recordings/program/file -> PAGES_URL/recordings/program/file (Support both if user includes recordings/)
+    if (request.method === "GET") {
+        const pagesUrl = env.PAGES_URL || "https://sogeuni.github.io/record-stream";
+        
+        // Handle root request
+        if (url.pathname === "/") {
+             return new Response("EBS Record Worker is Running.", { status: 200 });
+        }
+
+        let targetPath = url.pathname;
+        
+        // If the path already starts with /recordings, we just append it to pagesUrl (assuming pagesUrl is root)
+        // BUT pagesUrl is `.../recordings`? No, pagesUrl is `.../record-stream` usually.
+        // Let's assume env.PAGES_URL is "https://sogeuni.github.io/record-stream"
+        
+        // Strategy: We want to support:
+        // 1. /test/feed.xml -> gets /recordings/test/feed.xml
+        // 2. /recordings/test/feed.xml -> gets /recordings/test/feed.xml (idempotent)
+        
+        let finalTargetUrl = "";
+        
+        if (targetPath.startsWith("/recordings/")) {
+             finalTargetUrl = `${pagesUrl}${targetPath}`;
+        } else {
+             finalTargetUrl = `${pagesUrl}/recordings${targetPath}`;
+        }
+        
+        console.log(`[Proxy] Fetching: ${finalTargetUrl}`);
+
+        try {
+            const response = await fetch(finalTargetUrl, {
+                headers: {
+                    "User-Agent": "Cloudflare-Worker-Proxy"
+                }
+            });
+
+            return new Response(response.body, {
+                status: response.status,
+                statusText: response.statusText,
+                headers: response.headers
+            });
+        } catch (e) {
+            console.error(`[Proxy] Error: ${e.message}`);
+            return new Response("Failed to fetch content", { status: 502 });
+        }
+    }
+
+    return new Response("Method Not Allowed", { status: 405 });
   },
 
   // 2. Scheduled Cron Handler
