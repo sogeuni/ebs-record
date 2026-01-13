@@ -65,13 +65,18 @@ jobs:
           git checkout publish
 
           # 5. Restore recordings (Keep existing ones, overwrite new ones)
-          # We need to make sure we don't delete old files on the branch.
-          # Check if recordings dir exists in this branch
-          mkdir -p recordings
-          cp -r /tmp/new_recordings/* recordings/
+          # We check out publish branch which now should hold programs at root
+          # We copy new recordings to root
+          cp -r /tmp/new_recordings/* .
+
+          # Optional: Remove old 'recordings' dir if it exists to clean up
+          if [ -d "recordings" ]; then
+            git rm -r recordings || true
+            rm -rf recordings
+          fi
 
           # 6. Commit and Push
-          git add recordings/
+          git add .
 
           if git diff --staged --quiet; then
             echo "No changes to commit."
