@@ -73,12 +73,11 @@ def record_stream(url, duration, program_name):
     # ... (header same)
     
     # Wait for precise start
-    wait_for_start_time()
+    wait_for_start_time(start_time)
 
-    # Generate timestamp (YYYYMMDD_HHMMSS)
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    # ... (rest of function)
-
+    # Generate timestamp (YYYYMMDD_HHMMSS) in KST (UTC+9)
+    kst_timezone = datetime.timezone(datetime.timedelta(hours=9))
+    timestamp = datetime.datetime.now(kst_timezone).strftime("%Y%m%d_%H%M%S")
     
     # Replace spaces in program name with hyphens
     safe_program_name = program_name.replace(" ", "-")
