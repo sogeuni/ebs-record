@@ -3,10 +3,7 @@ main = "workers/trigger.js"
 compatibility_date = "2023-01-01"
 
 [triggers]
-# 여기에 Cron 식을 등록해야 이벤트가 발생합니다.
-# Test Schedule: Trigger 1 minute early (e.g., minute 4, 9, 14...)
-# Execution will wait until minute 5, 10, 15... (00 seconds)
-crons = ["4/5 * * * *"]
+crons = ["19 22 * * SUN-FRI", "39 22 * * SUN-FRI", "39 20 * * SUN-FRI"]
 
 [vars]
 # GITHUB_TOKEN은 별도 설정 필요
@@ -14,14 +11,27 @@ crons = ["4/5 * * * *"]
 # Points to the 'publish' branch
 RAW_URL = "https://raw.githubusercontent.com/sogeuni/ebs-record/publish"
 
-# SCHEDULE_JSON 변수에 일정과 프로그램 정보를 JSON 문자열로 정의합니다.
-# Test Schedule: Every 5 minutes
+# Production Schedule (KST Mon-Sat)
+# 1. Easy English: 07:20 KST -> 22:20 UTC (Trigger at 22:19)
+# 2. Power English: 07:40 KST -> 22:40 UTC (Trigger at 22:39)
+# Days: Mon-Sat KST = Sun-Fri UTC (0-5)
+
 SCHEDULE_JSON = '''
 {
-  "4/5 * * * *": {
-    "program_name": "test",
+  "19 22 * * SUN-FRI": {
+    "program_name": "easy_english",
     "stream_url": "http://ebsonair.ebs.co.kr/fmradiofamilypc/familypc1m/playlist.m3u8",
-    "duration": 60
+    "duration": 1200
+  },
+  "39 22 * * SUN-FRI": {
+    "program_name": "power_english",
+    "stream_url": "http://ebsonair.ebs.co.kr/fmradiofamilypc/familypc1m/playlist.m3u8",
+    "duration": 1200
+  },
+  "39 20 * * SUN-FRI": {
+    "program_name": "basic_japanese",
+    "stream_url": "http://ebsonair.ebs.co.kr/fmradiofamilypc/familypc1m/playlist.m3u8",
+    "duration": 1200
   }
 }
 '''
