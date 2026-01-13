@@ -77,12 +77,9 @@ export default {
         let targetPath = url.pathname;
         let finalTargetUrl = "";
         
-        // We expect path like /test/feed.xml -> Raw URL need /recordings/test/feed.xml if structure is kept
-        if (targetPath.startsWith("/recordings/")) {
-             finalTargetUrl = `${rawUrl}${targetPath}`;
-        } else {
-             finalTargetUrl = `${rawUrl}/recordings${targetPath}`;
-        }
+        // We expect path like /test/feed.xml -> Raw URL is now root of publish branch
+        // So we just append the path directly.
+        finalTargetUrl = `${rawUrl}${targetPath}`;
         
         console.log(`[Proxy] Fetching Raw: ${finalTargetUrl}`);
 
