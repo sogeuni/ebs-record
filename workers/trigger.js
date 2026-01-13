@@ -247,6 +247,7 @@ export default {
   // 2. Scheduled Cron Handler
   async scheduled(event, env, ctx) {
     const cron = event.cron;
+    console.log(`[Scheduled] Triggered by cron: "${cron}"`);
     
     let scheduleMap = {};
     try {
@@ -254,16 +255,32 @@ export default {
             scheduleMap = JSON.parse(env.SCHEDULE_JSON);
         }
     } catch (e) {
-        console.error("Failed to parse SCHEDULE_JSON", e);
+        console.error("[Scheduled] Failed to parse SCHEDULE_JSON", e);
+        return;
     }
 
-    const task = scheduleMap[cron];
+    // Robust matching: Normalize spaces
+    // Cloudflare cron strings might differ slightly in spacing from our JSON keys
+    const normalizeCron = (str) => str.replace(/\s+/g, ' ').trim();
+    const targetCron = normalizeCron(cron);
+
+    // Find task by normalized key comparison
+    let task = null;
+    for (const key of Object.keys(scheduleMap)) {
+        if (normalizeCron(key) === targetCron) {
+            task = scheduleMap[key];
+            console.log(`[Scheduled] Match found for key: "${key}"`);
+            break;
+        }
+    }
 
     if (task) {
-      console.log(`Executing scheduled task for cron: ${cron}`);
-      ctx.waitUntil(triggerWorkflow(env, task));
+      console.log(`[Scheduled] Executing task for program: ${task.program_name}`);
+      ctx.waitUntil(triggerWorkflow(env, task).catch(err => {
+          console.error(`[Scheduled] Workflow trigger failed: ${err.message}`);
+      }));
     } else {
-      console.log(`No task found for cron: ${cron}`);
+      console.log(`[Scheduled] No matching task found for cron: "${cron}". Available keys: ${Object.keys(scheduleMap).join(', ')}`);
     }
   }
 };

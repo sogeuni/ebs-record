@@ -70,6 +70,10 @@ jobs:
             echo "No changes to commit."
           else
             git commit -m "Add recording: $SAFE_PROGRAM_NAME ($(date +'%Y-%m-%d %H:%M'))"
+            
+            # Clean up config.json to avoid rebase error (unstaged changes)
+            git checkout -- config.json || true
+            
             # Pull with rebase to handle concurrent pushes
             git pull --rebase origin main
             git push origin main

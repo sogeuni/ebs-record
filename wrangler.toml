@@ -4,22 +4,23 @@ compatibility_date = "2023-01-01"
 
 [triggers]
 # 여기에 Cron 식을 등록해야 이벤트가 발생합니다.
-crons = ["0 22 * * *", "35 6 * * 1-5"]
+crons = ["*/5 * * * *"]
 
 [vars]
 # GITHUB_TOKEN은 별도 설정 필요
 # SCHEDULE_JSON 변수에 일정과 프로그램 정보를 JSON 문자열로 정의합니다.
+# Test Schedule: Every 5 minutes, 60 seconds recording
 SCHEDULE_JSON = '''
 {
-  "0 22 * * *": {
-    "program_name": "Power English",
+  "*/5 * * * *": {
+    "program_name": "test",
     "stream_url": "http://ebsonair.ebs.co.kr/fmradiofamilypc/familypc1m/playlist.m3u8",
-    "duration": 1200
-  },
-  "35 6 * * 1-5": {
-    "program_name": "Easy English",
-    "stream_url": "http://ebsonair.ebs.co.kr/fmradiofamilypc/familypc1m/playlist.m3u8",
-    "duration": 1200
+    "duration": 60
   }
 }
 '''
+
+[observability]
+[observability.logs]
+enabled = true
+invocation_logs = true
