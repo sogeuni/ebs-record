@@ -92,11 +92,9 @@ def record_stream(url, duration, program_name):
     filename = f"{safe_program_name}_{timestamp}.m4a"
     output_path = os.path.join(program_dir, filename)
     
-    # Target: < 10MB for 20 mins (1200s)
-    # 10MB / 1200s ≈ 69kbps
-    # Set to 48kbps for safety margin (Expected ~7.2MB)
-    # 48k AAC provides decent quality for speech-based radio
-    bitrate = "48k"
+    # Target: ~10MB for 20 mins
+    # Increased from 48k to 64k for better quality
+    bitrate = "64k"
 
     command = [
         "ffmpeg",
