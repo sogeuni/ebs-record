@@ -9,9 +9,16 @@
     <itunes:image href="https://sogeuni.github.io/record-stream/image.jpg"/>
 
     <item>
+      <title>test_20260113_072110.m4a</title>
+      <description>Recorded on 2026-01-13 07:22</description>
+      <pubDate>Tue, 13 Jan 2026 07:22:01 +0900</pubDate>
+      <enclosure url="https://sogeuni.github.io/record-stream/test/test_20260113_072110.m4a" length="379146" type="audio/mp4"/>
+      <guid isPermaLink="false">test_20260113_072110.m4a</guid>
+    </item>
+    <item>
       <title>test_20260113_071608.m4a</title>
-      <description>Recorded on 2026-01-13 07:16</description>
-      <pubDate>Tue, 13 Jan 2026 07:16:52 +0900</pubDate>
+      <description>Recorded on 2026-01-13 07:21</description>
+      <pubDate>Tue, 13 Jan 2026 07:21:03 +0900</pubDate>
       <enclosure url="https://sogeuni.github.io/record-stream/test/test_20260113_071608.m4a" length="374067" type="audio/mp4"/>
       <guid isPermaLink="false">test_20260113_071608.m4a</guid>
     </item>
