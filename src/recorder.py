@@ -73,7 +73,7 @@ def record_stream(url, duration, program_name):
     # ... (header same)
     
     # Wait for precise start
-    wait_for_start_time(start_time)
+    wait_for_start_time()
 
     # Generate timestamp (YYYYMMDD_HHMMSS) in KST (UTC+9)
     kst_timezone = datetime.timezone(datetime.timedelta(hours=9))
@@ -142,4 +142,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     
-    record_stream(args.url, args.duration, args.program_name, args.start_time)
+    record_stream(args.url, args.duration, args.program_name)

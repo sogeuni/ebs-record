@@ -15,7 +15,7 @@ crons = ["4/5 * * * *"]
 RAW_URL = "https://raw.githubusercontent.com/sogeuni/ebs-record/publish"
 
 # SCHEDULE_JSON 변수에 일정과 프로그램 정보를 JSON 문자열로 정의합니다.
-# Test Schedule: Every 5 minutes, 60 seconds recording
+# Test Schedule: Every 5 minutes
 SCHEDULE_JSON = '''
 {
   "4/5 * * * *": {

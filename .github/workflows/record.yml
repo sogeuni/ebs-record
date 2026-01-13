@@ -47,7 +47,6 @@ jobs:
           # Ensure clean state (remove pycache)
           find . -type d -name "__pycache__" -exec rm -rf {} +
 
-          CMD="python3 src/recorder.py \"${{ inputs.stream_url }}\" ${{ inputs.duration }} \"${{ inputs.program_name }}\""
           python3 src/recorder.py "${{ inputs.stream_url }}" ${{ inputs.duration }} "${{ inputs.program_name }}"
 
       - name: Deploy to Publish Branch
