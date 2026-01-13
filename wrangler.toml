@@ -10,6 +10,9 @@ crons = ["4/5 * * * *"]
 
 [vars]
 # GITHUB_TOKEN은 별도 설정 필요
+# PAGES_URL: GitHub Pages Base URL (for proxying)
+PAGES_URL = "https://sogeuni.github.io/record-stream"
+
 # SCHEDULE_JSON 변수에 일정과 프로그램 정보를 JSON 문자열로 정의합니다.
 # Test Schedule: Every 5 minutes, 60 seconds recording
 SCHEDULE_JSON = '''
