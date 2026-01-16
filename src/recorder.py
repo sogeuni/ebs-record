@@ -79,9 +79,11 @@ def record_stream(url, duration, program_name, scheduled_time=None):
     filename = f"{safe_program_name}_{timestamp}.m4a"
     output_path = os.path.join(program_dir, filename)
     
-    # Target: ~5MB for 20 mins (HE-AAC High Efficiency)
-    # 32k HE-AAC provides quality similar to 64k AAC-LC for speech
-    bitrate = "32k"
+    # Target: Optimize for language learning (Voice)
+    # Strategy: Downmix to Mono (-ac 1) + 48k Bitrate
+    # Mono 48k is very high quality for voice (equivalent to ~96k Stereo)
+    # File size: ~7MB for 20 mins.
+    bitrate = "48k"
 
     # Prepare Metadata
     date_str = datetime.datetime.now(kst_timezone).strftime("%Y-%m-%d")
@@ -94,7 +96,7 @@ def record_stream(url, duration, program_name, scheduled_time=None):
         "-t", str(duration),  # Duration
         "-vn",                # No video (Audio only)
         "-c:a", "aac",        # Audio codec: Native AAC
-        "-profile:a", "aac_he", # Profile: High Efficiency (HE-AAC)
+        "-ac", "1",           # Downmix to Mono (Efficient for speech)
         "-b:a", bitrate,      # Bitrate
         "-metadata", f"title={display_title}",
         "-metadata", "artist=EBS",
@@ -110,7 +112,7 @@ def record_stream(url, duration, program_name, scheduled_time=None):
     print(f"Program: {program_name}")
     print(f"URL: {url}")
     print(f"Duration: {duration}s ({duration/60:.1f}min)")
-    print(f"Target Quality: {bitrate} HE-AAC (Approx. 4~5MB for 20min)")
+    print(f"Target Quality: {bitrate} Mono (Optimized for Voice)")
     print(f"Output Path: {output_path}")
     print("=========================\n")
     
