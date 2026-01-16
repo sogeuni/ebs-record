@@ -79,9 +79,9 @@ def record_stream(url, duration, program_name, scheduled_time=None):
     filename = f"{safe_program_name}_{timestamp}.m4a"
     output_path = os.path.join(program_dir, filename)
     
-    # Target: ~10MB for 20 mins
-    # Increased from 48k to 64k for better quality
-    bitrate = "64k"
+    # Target: ~5MB for 20 mins (HE-AAC High Efficiency)
+    # 32k HE-AAC provides quality similar to 64k AAC-LC for speech
+    bitrate = "32k"
 
     # Prepare Metadata
     date_str = datetime.datetime.now(kst_timezone).strftime("%Y-%m-%d")
@@ -93,7 +93,8 @@ def record_stream(url, duration, program_name, scheduled_time=None):
         "-i", url,            # Input URL
         "-t", str(duration),  # Duration
         "-vn",                # No video (Audio only)
-        "-c:a", "aac",        # Audio codec: AAC
+        "-c:a", "aac",        # Audio codec: Native AAC
+        "-profile:a", "aac_he", # Profile: High Efficiency (HE-AAC)
         "-b:a", bitrate,      # Bitrate
         "-metadata", f"title={display_title}",
         "-metadata", "artist=EBS",
@@ -109,7 +110,7 @@ def record_stream(url, duration, program_name, scheduled_time=None):
     print(f"Program: {program_name}")
     print(f"URL: {url}")
     print(f"Duration: {duration}s ({duration/60:.1f}min)")
-    print(f"Target Quality: {bitrate} (Approx. 7~8MB for 20min)")
+    print(f"Target Quality: {bitrate} HE-AAC (Approx. 4~5MB for 20min)")
     print(f"Output Path: {output_path}")
     print("=========================\n")
     
