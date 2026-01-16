@@ -80,10 +80,10 @@ def record_stream(url, duration, program_name, scheduled_time=None):
     output_path = os.path.join(program_dir, filename)
     
     # Target: Optimize for language learning (Voice)
-    # Strategy: Downmix to Mono (-ac 1) + 48k Bitrate
-    # Mono 48k is very high quality for voice (equivalent to ~96k Stereo)
-    # File size: ~7MB for 20 mins.
-    bitrate = "48k"
+    # Strategy: Downmix to Mono (-ac 1) + 56k Bitrate
+    # 56k provides a quality boost over 48k while remaining efficient.
+    # File size: ~8.4MB for 20 mins.
+    bitrate = "56k"
 
     # Prepare Metadata
     date_str = datetime.datetime.now(kst_timezone).strftime("%Y-%m-%d")
