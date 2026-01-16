@@ -68,7 +68,7 @@ def generate_rss(program_name, base_url=None):
 
         # Create item content
         from urllib.parse import quote
-        file_url = f"{base_url}/{safe_program_name}/{quote(filename)}"
+        file_url = f"{base_url}/{quote(safe_program_name)}/{quote(filename)}"
         
         item_block = f"""    <item>
       <title>{escape(filename)}</title>
