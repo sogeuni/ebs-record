@@ -3,38 +3,60 @@ main = "workers/trigger.js"
 compatibility_date = "2023-01-01"
 
 [triggers]
-crons = ["19 22 * * SUN-FRI", "39 22 * * SUN-FRI", "39 20 * * SUN-FRI"]
+# Consolidated Crons (Max 5 allowed)
+# 1. 19:59, 20:59, 21:59 (05:00, 06:00, 07:00 KST)
+# 2. 21:19, 22:19 (06:20, 07:20 KST)
+# 3. 21:39, 22:39 (06:40, 07:40 KST)
+crons = ["59 19-21 * * SUN-FRI", "19 21-22 * * SUN-FRI", "39 21-22 * * SUN-FRI"]
 
 [vars]
 # GITHUB_TOKEN은 별도 설정 필요
-# RAW_URL: GitHub Raw Content Base URL (Private Repo Token Access)
 # Points to the 'publish' branch
 RAW_URL = "https://raw.githubusercontent.com/sogeuni/ebs-record/publish"
 
 # Common Stream URL (EBS FM)
 COMMON_STREAM_URL = "http://ebsonair.ebs.co.kr/fmradiofamilypc/familypc1m/playlist.m3u8"
 
-# Production Schedule (KST Mon-Sat)
-# 1. Easy English: 07:20:30 KST -> 22:20:30 UTC (Trigger at 22:19)
-# 2. Power English: 07:40:30 KST -> 22:40:30 UTC (Trigger at 22:39)
-# 3. Basic Japanese: 05:40:30 KST -> 20:40:30 UTC (Trigger at 20:39)
-# Days: Mon-Sat KST = Sun-Fri UTC (0-5)
+# Production Schedule (KST)
+# Key format: "HH:mm" (UTC)
+# Programs start 30 seconds after broadcast time.
+# Duration: 18m 30s (1110s).
 
 SCHEDULE_JSON = '''
 {
-  "19 22 * * SUN-FRI": {
-    "program_name": "easy_english",
+  "19:59": {
+    "program_name": "JAPANESE_SPLIT",
+    "scheduled_time": "05:00:30",
+    "duration": 1110
+  },
+  "20:59": {
+    "program_name": "Easy Writing",
+    "scheduled_time": "06:00:30",
+    "duration": 1110
+  },
+  "21:19": {
+    "program_name": "귀가 트이는 영어",
+    "scheduled_time": "06:20:30",
+    "duration": 1110
+  },
+  "21:39": {
+    "program_name": "입이 트이는 영어",
+    "scheduled_time": "06:40:30",
+    "duration": 1110
+  },
+  "21:59": {
+    "program_name": "Start English",
+    "scheduled_time": "07:00:30",
+    "duration": 1110
+  },
+  "22:19": {
+    "program_name": "Easy English",
     "scheduled_time": "07:20:30",
     "duration": 1110
   },
-  "39 22 * * SUN-FRI": {
-    "program_name": "power_english",
+  "22:39": {
+    "program_name": "Power English",
     "scheduled_time": "07:40:30",
-    "duration": 1110
-  },
-  "39 20 * * SUN-FRI": {
-    "program_name": "basic_japanese",
-    "scheduled_time": "05:40:30",
     "duration": 1110
   }
 }

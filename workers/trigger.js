@@ -134,18 +134,33 @@ export default {
         return;
     }
 
-    // Robust matching: Normalize spaces
-    // Cloudflare cron strings might differ slightly in spacing from our JSON keys
-    const normalizeCron = (str) => str.replace(/\s+/g, ' ').trim();
-    const targetCron = normalizeCron(cron);
+    // Determine current UTC time from scheduledTime
+    const scheduledDate = new Date(event.scheduledTime);
+    const utcHours = String(scheduledDate.getUTCHours()).padStart(2, '0');
+    const utcMinutes = String(scheduledDate.getUTCMinutes()).padStart(2, '0');
+    const timeKey = `${utcHours}:${utcMinutes}`;
+    
+    console.log(`[Scheduled] Time Key: ${timeKey} (from ${event.scheduledTime})`);
 
-    // Find task by normalized key comparison
-    let task = null;
-    for (const key of Object.keys(scheduleMap)) {
-        if (normalizeCron(key) === targetCron) {
-            task = scheduleMap[key];
-            console.log(`[Scheduled] Match found for key: "${key}"`);
-            break;
+    let task = scheduleMap[timeKey];
+
+    // Handle Japanese Program Split Logic
+    if (task && task.program_name === "JAPANESE_SPLIT") {
+        const utcDay = scheduledDate.getUTCDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+        
+        // KST Mon-Wed = UTC Sun-Tue (0, 1, 2)
+        if (utcDay >= 0 && utcDay <= 2) {
+             task = { ...task, program_name: "초급 일본어" };
+        } 
+        // KST Thu-Sat = UTC Wed-Fri (3, 4, 5)
+        else if (utcDay >= 3 && utcDay <= 5) {
+             task = { ...task, program_name: "중급 일본어" };
+        } 
+        else {
+             console.log(`[Scheduled] Japanese program skipped on UTC day ${utcDay} (Sat/Sun UTC = Sun/Mon KST?)`);
+             // Wait, KST Mon-Sat is UTC Sun-Fri.
+             // So UTC 6 (Sat) is KST Sun. No broadcast.
+             task = null; 
         }
     }
 
@@ -155,7 +170,7 @@ export default {
           console.error(`[Scheduled] Workflow trigger failed: ${err.message}`);
       }));
     } else {
-      console.log(`[Scheduled] No matching task found for cron: "${cron}". Available keys: ${Object.keys(scheduleMap).join(', ')}`);
+      console.log(`[Scheduled] No matching task found for time: "${timeKey}". Available keys: ${Object.keys(scheduleMap).join(', ')}`);
     }
   }
 };
