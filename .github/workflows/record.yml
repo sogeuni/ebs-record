@@ -16,7 +16,7 @@ on:
         required: true
         default: "10"
       scheduled_time:
-        description: "Scheduled Start Time (KST HH:MM)"
+        description: "Scheduled Start Time (KST HH:MM or HH:MM:SS)"
         required: false
         default: ""
 
