@@ -80,6 +80,12 @@ jobs:
 
           # 5. Restore recordings (Keep existing ones, overwrite new ones)
           # We check out publish branch which now should hold programs at root
+
+          # SAFETY CLEANUP: Remove source code and caches from publish branch
+          # We only want audio and xml files here.
+          rm -rf src workers .github config.json wrangler.toml package*.json *.js || true
+          find . -type d -name "__pycache__" -exec rm -rf {} +
+
           # We copy new recordings to root
           cp -r /tmp/new_recordings/* .
 
