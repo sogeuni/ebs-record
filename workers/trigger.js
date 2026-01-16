@@ -10,6 +10,13 @@ async function triggerWorkflow(env, { program_name, stream_url, duration, schedu
     throw new Error("Server Error: GITHUB_TOKEN not configured");
   }
 
+  // Use task-specific URL or Fallback to Common URL
+  const finalStreamUrl = stream_url || env.COMMON_STREAM_URL;
+
+  if (!finalStreamUrl) {
+      throw new Error("No stream_url provided and no COMMON_STREAM_URL configured.");
+  }
+
   const response = await fetch(
     "https://api.github.com/repos/sogeuni/ebs-record/actions/workflows/record.yml/dispatches",
     {
@@ -23,7 +30,7 @@ async function triggerWorkflow(env, { program_name, stream_url, duration, schedu
         ref: "main",
         inputs: {
           program_name,
-          stream_url,
+          stream_url: finalStreamUrl,
           duration: String(duration),
           scheduled_time: scheduled_time || "" // KST HH:MM
         }
