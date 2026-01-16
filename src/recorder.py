@@ -83,6 +83,11 @@ def record_stream(url, duration, program_name, scheduled_time=None):
     # Increased from 48k to 64k for better quality
     bitrate = "64k"
 
+    # Prepare Metadata
+    date_str = datetime.datetime.now(kst_timezone).strftime("%Y-%m-%d")
+    year_str = datetime.datetime.now(kst_timezone).strftime("%Y")
+    display_title = f"{program_name} ({date_str})"
+    
     command = [
         "ffmpeg",
         "-i", url,            # Input URL
@@ -90,6 +95,12 @@ def record_stream(url, duration, program_name, scheduled_time=None):
         "-vn",                # No video (Audio only)
         "-c:a", "aac",        # Audio codec: AAC
         "-b:a", bitrate,      # Bitrate
+        "-metadata", f"title={display_title}",
+        "-metadata", "artist=EBS",
+        "-metadata", f"album={program_name}",
+        "-metadata", f"year={year_str}",
+        "-metadata", "genre=Podcast",
+        "-metadata", "comment=Recorded by EBS-Record",
         "-y",                 # Overwrite output file
         output_path           # Save to specific path
     ]
