@@ -26,9 +26,13 @@ def wait_for_start_time(scheduled_time_str=None):
     
     if scheduled_time_str:
         try:
-            # Parse HH:MM
-            target_hm = datetime.datetime.strptime(scheduled_time_str, "%H:%M").time()
-            target_time = now_kst.replace(hour=target_hm.hour, minute=target_hm.minute, second=0, microsecond=0)
+            # Parse HH:MM or HH:MM:SS
+            try:
+                target_hm = datetime.datetime.strptime(scheduled_time_str, "%H:%M:%S").time()
+            except ValueError:
+                target_hm = datetime.datetime.strptime(scheduled_time_str, "%H:%M").time()
+            
+            target_time = now_kst.replace(hour=target_hm.hour, minute=target_hm.minute, second=target_hm.second, microsecond=0)
             
             # If target is much earlier (e.g. yesterday's time?), handle wrapping?
             # Assuming broadcast is "today".
