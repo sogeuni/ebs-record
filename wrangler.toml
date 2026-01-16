@@ -22,13 +22,24 @@ COMMON_STREAM_URL = "http://ebsonair.ebs.co.kr/fmradiofamilypc/familypc1m/playli
 # Programs start 30 seconds after broadcast time.
 # Duration: 18m 30s (1110s).
 
+# Days: Sunday=0, Monday=1, ... Saturday=6 (UTC)
+
 SCHEDULE_JSON = '''
 {
-  "19:59": {
-    "program_name": "JAPANESE_SPLIT",
-    "scheduled_time": "05:00:30",
-    "duration": 1110
-  },
+  "19:59": [
+    {
+      "program_name": "초급 일본어",
+      "scheduled_time": "05:00:30",
+      "duration": 1110,
+      "days": [0, 1, 2]
+    },
+    {
+      "program_name": "중급 일본어",
+      "scheduled_time": "05:00:30",
+      "duration": 1110,
+      "days": [3, 4, 5]
+    }
+  ],
   "20:59": {
     "program_name": "Easy Writing",
     "scheduled_time": "06:00:30",

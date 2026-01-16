@@ -139,38 +139,38 @@ export default {
     const utcHours = String(scheduledDate.getUTCHours()).padStart(2, '0');
     const utcMinutes = String(scheduledDate.getUTCMinutes()).padStart(2, '0');
     const timeKey = `${utcHours}:${utcMinutes}`;
+    const utcDay = scheduledDate.getUTCDay(); // 0=Sun ... 6=Sat
     
-    console.log(`[Scheduled] Time Key: ${timeKey} (from ${event.scheduledTime})`);
+    console.log(`[Scheduled] Time Key: ${timeKey}, UTC Day: ${utcDay}`);
 
-    let task = scheduleMap[timeKey];
+    let entry = scheduleMap[timeKey];
+    let taskToRun = null;
 
-    // Handle Japanese Program Split Logic
-    if (task && task.program_name === "JAPANESE_SPLIT") {
-        const utcDay = scheduledDate.getUTCDay(); // 0=Sun, 1=Mon, ..., 6=Sat
-        
-        // KST Mon-Wed = UTC Sun-Tue (0, 1, 2)
-        if (utcDay >= 0 && utcDay <= 2) {
-             task = { ...task, program_name: "초급 일본어" };
-        } 
-        // KST Thu-Sat = UTC Wed-Fri (3, 4, 5)
-        else if (utcDay >= 3 && utcDay <= 5) {
-             task = { ...task, program_name: "중급 일본어" };
-        } 
-        else {
-             console.log(`[Scheduled] Japanese program skipped on UTC day ${utcDay} (Sat/Sun UTC = Sun/Mon KST?)`);
-             // Wait, KST Mon-Sat is UTC Sun-Fri.
-             // So UTC 6 (Sat) is KST Sun. No broadcast.
-             task = null; 
+    if (entry) {
+        if (Array.isArray(entry)) {
+            // Find task matching current day
+            taskToRun = entry.find(t => !t.days || t.days.includes(utcDay));
+            if (!taskToRun) {
+                console.log(`[Scheduled] No matching task for day ${utcDay} in array list.`);
+            }
+        } else {
+            // Single task object
+            taskToRun = entry;
+            // Optional: Check 'days' if present even on single object
+            if (taskToRun.days && !taskToRun.days.includes(utcDay)) {
+                console.log(`[Scheduled] Task skipped: Day ${utcDay} not in ${taskToRun.days}`);
+                taskToRun = null;
+            }
         }
     }
 
-    if (task) {
-      console.log(`[Scheduled] Executing task for program: ${task.program_name}`);
-      ctx.waitUntil(triggerWorkflow(env, task).catch(err => {
+    if (taskToRun) {
+      console.log(`[Scheduled] Executing task for program: ${taskToRun.program_name}`);
+      ctx.waitUntil(triggerWorkflow(env, taskToRun).catch(err => {
           console.error(`[Scheduled] Workflow trigger failed: ${err.message}`);
       }));
     } else {
-      console.log(`[Scheduled] No matching task found for time: "${timeKey}". Available keys: ${Object.keys(scheduleMap).join(', ')}`);
+      console.log(`[Scheduled] No task found or matched for time: "${timeKey}"`);
     }
   }
 };
