@@ -4,13 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       program_name:
-        description: "Program Name (e.g. fm)"
+        description: "Program Name"
         required: true
-        default: "fm"
-      stream_url:
-        description: "Stream URL"
-        required: true
-        default: "http://ebsonair.ebs.co.kr/fmradiofamilypc/familypc1m/playlist.m3u8"
+        default: "Test Program"
       duration:
         description: "Duration (seconds)"
         required: true
@@ -28,13 +24,13 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout repository (main branch)
-        uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: "3.9"
 
       - name: Setup FFmpeg
         uses: AnimMouse/setup-ffmpeg@v1
@@ -51,9 +47,10 @@ jobs:
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_BUCKET_NAME: "ebs"
           R2_PUBLIC_URL: "http://ebs.sogn.dev"
+          STREAM_URL: ${{ secrets.STREAM_URL }}
         run: |
           # Ensure clean state
           find . -type d -name "__pycache__" -exec rm -rf {} +
 
-          # Run recorder (now handles R2 upload internally)
-          python3 src/recorder.py "${{ inputs.stream_url }}" ${{ inputs.duration }} "${{ inputs.program_name }}" --scheduled_time "${{ inputs.scheduled_time }}"
+          # Run recorder with Secret Stream URL
+          python3 src/recorder.py "$STREAM_URL" ${{ inputs.duration }} "${{ inputs.program_name }}" --scheduled_time "${{ inputs.scheduled_time }}"

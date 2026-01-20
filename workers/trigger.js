@@ -50,18 +50,18 @@ async function triggerWorkflow(env, { program_name, stream_url, duration, schedu
 }
 
 export default {
-  // 1. HTTP Request Handler
+  // 1. HTTP Request Handler (Trigger Only)
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // POST /: Trigger workflow
+    // POST /: Trigger workflow manually
     if (request.method === "POST" && url.pathname === "/") {
         try {
             const { program_name, stream_url, duration } = await request.json();
     
-            if (!program_name || !stream_url || !duration) {
+            if (!program_name || !duration) {
                 return new Response(
-                    "Missing required fields: program_name, stream_url, duration",
+                    "Missing required fields: program_name, duration",
                     { status: 400 }
                 );
             }
@@ -73,50 +73,7 @@ export default {
         }
     }
 
-    // GET Proxy: Serve files from GitHub Raw (Private Repo Support)
-    // Needs GITHUB_TOKEN in headers
-    if (request.method === "GET") {
-        const rawUrl = env.RAW_URL || "https://raw.githubusercontent.com/sogeuni/ebs-record/publish";
-        
-        if (url.pathname === "/") {
-             return new Response("EBS Record Worker (Private Proxy) is Running.", { status: 200 });
-        }
-
-        let targetPath = url.pathname;
-        let finalTargetUrl = "";
-        
-        // We expect path like /test/feed.xml -> Raw URL is now root of publish branch
-        // So we just append the path directly.
-        finalTargetUrl = `${rawUrl}${targetPath}`;
-        
-        console.log(`[Proxy] Fetching Raw: ${finalTargetUrl}`);
-
-        try {
-            const response = await fetch(finalTargetUrl, {
-                headers: {
-                    "User-Agent": "Cloudflare-Worker-Proxy",
-                    "Authorization": `Bearer ${env.GITHUB_TOKEN}` // AUTHENTICATION!
-                }
-            });
-            
-            if (!response.ok) {
-                 console.error(`[Proxy] Upstream Error: ${response.status}`);
-                 if (response.status === 404) return new Response("File not found on GitHub", { status: 404 });
-                 if (response.status === 403) return new Response("Access Denied (Token Error?)", { status: 403 });
-            }
-
-            return new Response(response.body, {
-                status: response.status,
-                statusText: response.statusText,
-                headers: response.headers
-            });
-        } catch (e) {
-            console.error(`[Proxy] Error: ${e.message}`);
-            return new Response("Failed to fetch content", { status: 502 });
-        }
-    }
-
-    return new Response("Method Not Allowed", { status: 405 });
+    return new Response("EBS Record Worker Running (Secure Mode)", { status: 200 });
   },
 
   // 2. Scheduled Cron Handler
@@ -128,6 +85,9 @@ export default {
     try {
         if (env.SCHEDULE_JSON) {
             scheduleMap = JSON.parse(env.SCHEDULE_JSON);
+        } else {
+             console.error("[Scheduled] SCHEDULE_JSON secret is missing!");
+             return;
         }
     } catch (e) {
         console.error("[Scheduled] Failed to parse SCHEDULE_JSON", e);
