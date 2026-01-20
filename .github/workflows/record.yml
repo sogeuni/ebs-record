@@ -39,68 +39,21 @@ jobs:
       - name: Setup FFmpeg
         uses: AnimMouse/setup-ffmpeg@v1
 
-      - name: Restore existing RSS Feed
-        continue-on-error: true
+      - name: Install Dependencies
         run: |
-          # Try to fetch existing feed.xml from publish branch
-          mkdir -p recordings/${{ inputs.program_name }}
-          git show origin/publish:${{ inputs.program_name }}/feed.xml > recordings/${{ inputs.program_name }}/feed.xml 2>/dev/null || echo "No existing feed.xml found, starting fresh."
+          python -m pip install --upgrade pip
+          pip install boto3
 
-      - name: Run Recorder
+      - name: Run Recorder & Upload to R2
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: "ebs"
+          R2_PUBLIC_URL: "http://ebs.sogn.dev"
         run: |
-          # Ensure clean state (remove pycache)
+          # Ensure clean state
           find . -type d -name "__pycache__" -exec rm -rf {} +
 
+          # Run recorder (now handles R2 upload internally)
           python3 src/recorder.py "${{ inputs.stream_url }}" ${{ inputs.duration }} "${{ inputs.program_name }}" --scheduled_time "${{ inputs.scheduled_time }}"
-
-      - name: Deploy to Publish Branch
-        run: |
-          # 1. Setup Identity
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # 2. Preserve Recordings
-          # We want to keep the history of the publish branch, so we fetch it.
-          # But simpler: use a dedicated action or manual orphan reset?
-          # Let's use manual fetch and merge to keep history.
-
-          git fetch origin publish:publish || git checkout --orphan publish
-
-          # 3. Move new recordings to a safe place
-          mkdir -p /tmp/new_recordings
-          cp -r recordings/* /tmp/new_recordings/
-
-          # 3.5 CLEANUP: Remove local changes to allow checkout
-          # The generated files prevent switching branches if they conflict.
-          git reset --hard
-          git clean -fd
-
-          # 4. Switch to publish branch
-          git checkout publish
-
-          # 5. Restore recordings (Keep existing ones, overwrite new ones)
-          # We check out publish branch which now should hold programs at root
-
-          # SAFETY CLEANUP: Remove source code and caches from publish branch
-          # We only want audio and xml files here.
-          rm -rf src workers .github config.json wrangler.toml package*.json *.js || true
-          find . -type d -name "__pycache__" -exec rm -rf {} +
-
-          # We copy new recordings to root
-          cp -r /tmp/new_recordings/* .
-
-          # Optional: Remove old 'recordings' dir if it exists to clean up
-          if [ -d "recordings" ]; then
-            git rm -r recordings || true
-            rm -rf recordings
-          fi
-
-          # 6. Commit and Push
-          git add .
-
-          if git diff --staged --quiet; then
-            echo "No changes to commit."
-          else
-            git commit -m "Add recording: ${{ inputs.program_name }} ($(date +'%Y-%m-%d %H:%M'))"
-            git push origin publish
-          fi

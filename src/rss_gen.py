@@ -1,167 +1,146 @@
 import os
 import datetime
-import glob
 import json
+import boto3
+from botocore.exceptions import ClientError
 from xml.sax.saxutils import escape
 
-def load_config():
-    """Load configuration from config.json"""
-    config_path = "config.json"
-    if os.path.exists(config_path):
-        try:
-            with open(config_path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception as e:
-            print(f"[Config Warning] Failed to load config.json: {e}")
-    return {}
+# Environment Variables
+R2_ACCOUNT_ID = os.environ.get("R2_ACCOUNT_ID")
+R2_ACCESS_KEY_ID = os.environ.get("R2_ACCESS_KEY_ID")
+R2_SECRET_ACCESS_KEY = os.environ.get("R2_SECRET_ACCESS_KEY")
+R2_BUCKET_NAME = os.environ.get("R2_BUCKET_NAME")
+R2_PUBLIC_URL = os.environ.get("R2_PUBLIC_URL")
 
-def generate_rss(program_name, base_url=None):
+def get_r2_client():
+    if not all([R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY]):
+        print("[RSS Error] Missing R2 Credentials")
+        return None
+        
+    return boto3.client(
+        's3',
+        endpoint_url=f"https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com",
+        aws_access_key_id=R2_ACCESS_KEY_ID,
+        aws_secret_access_key=R2_SECRET_ACCESS_KEY
+    )
+
+def update_rss_on_r2(program_name, file_metadata):
     """
-    Generate podcast RSS feed for a specific program.
+    Fetch existing feed.xml from R2, append new item, and upload back.
     
     Args:
-        program_name (str): Program name (directory name)
-        base_url (str): Base URL for the podcast files.
-                        If None, reads from config.json, or defaults to localhost.
+        program_name (str): Program name (used for folder structure)
+        file_metadata (dict): {
+            'filename': '...',
+            'size': 12345,
+            'desc_date': 'YYYY-MM-DD HH:MM',
+            'pub_date': 'Mon, ... +0900'
+        }
     """
-    
-    # Resolve base_url
-    if base_url is None:
-        config = load_config()
-        base_url = config.get("base_url", "http://localhost:8080")
-    
-    # Define paths
-    safe_program_name = program_name.replace(" ", "-")
-    recordings_dir = os.path.join("recordings", safe_program_name)
-    rss_path = os.path.join(recordings_dir, "feed.xml")
-    
-    if not os.path.exists(recordings_dir):
-        print(f"[RSS Error] Directory not found: {recordings_dir}")
+    client = get_r2_client()
+    if not client:
         return
 
-    # 1. Generate Metadata for NEW files (locally present)
-    # We essentially look for m4a files in the current directory.
-    # In the GitHub Action context, this will likely only be the latest recording.
-    local_files = glob.glob(os.path.join(recordings_dir, "*.m4a"))
-    local_items = []
+    safe_program_name = program_name.replace(" ", "-")
+    feed_key = f"{safe_program_name}/feed.xml"
     
-    for file_path in local_files:
-        filename = os.path.basename(file_path)
-        file_size = os.path.getsize(file_path)
-        
-        # Parse timestamp from filename (KST expected now)
-        try:
-            timestamp_str = filename.split("_")[-1].replace(".m4a", "")
-            if len(timestamp_str) > 15: 
-                 parts = filename.replace(".m4a", "").split("_")
-                 timestamp_str = f"{parts[-2]}_{parts[-1]}"
+    # 1. Fetch Existing Feed
+    existing_content = ""
+    try:
+        response = client.get_object(Bucket=R2_BUCKET_NAME, Key=feed_key)
+        existing_content = response['Body'].read().decode('utf-8')
+        print(f"[RSS Info] Fetched existing feed.xml for {program_name}")
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'NoSuchKey':
+            print(f"[RSS Info] No existing feed.xml found. Creating new one.")
+        else:
+            print(f"[RSS Error] Failed to fetch feed: {e}")
+            return
 
-            dt = datetime.datetime.strptime(timestamp_str, "%Y%m%d_%H%M%S")
-            # Assume timestamp is already KST from recorder.py
-            # Format: 'Tue, 13 Jan 2026 17:30:00 +0900'
-            pub_date = dt.strftime("%a, %d %b %Y %H:%M:%S +0900")
-            desc_date = dt.strftime('%Y-%m-%d %H:%M')
-        except Exception:
-            dt = datetime.datetime.fromtimestamp(os.path.getmtime(file_path))
-            pub_date = dt.strftime("%a, %d %b %Y %H:%M:%S +0900")
-            desc_date = dt.strftime('%Y-%m-%d %H:%M')
+    # 2. Add New Item
+    from urllib.parse import quote
+    
+    filename = file_metadata['filename']
+    file_size = file_metadata['size']
+    desc_date = file_metadata['desc_date']
+    pub_date = file_metadata['pub_date']
+    
+    # R2 Public URL
+    file_url = f"{R2_PUBLIC_URL}/{quote(safe_program_name)}/{quote(filename)}"
 
-        # Create item content
-        from urllib.parse import quote
-        file_url = f"{base_url}/{quote(safe_program_name)}/{quote(filename)}"
-        
-        item_block = f"""    <item>
+    new_item = f"""    <item>
       <title>{escape(filename)}</title>
       <description>Recorded on {desc_date}</description>
       <pubDate>{pub_date}</pubDate>
       <enclosure url="{file_url}" length="{file_size}" type="audio/mp4"/>
       <guid isPermaLink="false">{filename}</guid>
     </item>"""
-        local_items.append((filename, item_block))
 
-    # 2. Read EXISTING feed.xml to preserve history
-    existing_items = []
+    # 3. Construct/Update XML
     header = ""
     footer = """  </channel>
 </rss>"""
+    body_items = []
 
-    if os.path.exists(rss_path):
-        try:
-            with open(rss_path, "r", encoding="utf-8") as f:
-                content = f.read()
-                
-            # Naive parsing to extract items
-            # We look for <item> ... </item> blocks
-            import re
-            # Split into Header / Items / Footer
-            # Assumption: Items start after <itunes:image ... /> or <language> tag? 
-            # Safer: Regex find all items
-            item_pattern = re.compile(r'(<item>.*?</item>)', re.DOTALL)
-            found_items = item_pattern.findall(content)
-            
-            # Identify header (everything before first item)
-            first_item_match = item_pattern.search(content)
-            if first_item_match:
-                header = content[:first_item_match.start()]
+    if existing_content:
+        # Simple string manipulation to insert new item after <channel> or before footer?
+        # A robust way: Parse items or simply prepend to existing items list?
+        # Let's extract existing items using regex as before.
+        import re
+        item_pattern = re.compile(r'(<item>.*?</item>)', re.DOTALL)
+        found_items = item_pattern.findall(existing_content)
+        
+        # Extract Header
+        first_item_match = item_pattern.search(existing_content)
+        if first_item_match:
+            header = existing_content[:first_item_match.start()].strip()
+        else:
+            # If no items but file exists (header only), find </channel>
+            split_idx = existing_content.find("</channel>")
+            if split_idx != -1:
+                header = existing_content[:split_idx].strip()
             else:
-                # No items found, try to find end of channel/image
-                # Fallback to generating fresh header if ambiguous
-                pass
-            
-            for item in found_items:
-                # Extract guid to prevent duplicates
-                guid_match = re.search(r'<guid.*?>(.*?)</guid>', item)
-                guid = guid_match.group(1) if guid_match else ""
-                existing_items.append((guid, item))
-                
-        except Exception as e:
-            print(f"[RSS Warning] Failed to parse existing feed.xml: {e}. Regenerating.")
+                 # Fallback
+                 header = ""
 
-    # 3. Combine Items (New + Old, Deduplicated)
-    final_items = []
-    seen_guids = set()
-    
-    # Add Local New Items First (Reverse Chronological intent)
-    # Sort local items by filename desc (newest first)
-    local_items.sort(key=lambda x: x[0], reverse=True)
-    
-    for fname, block in local_items:
-        if fname not in seen_guids:
-            final_items.append(block)
-            seen_guids.add(fname)
-            
-    # Add Existing Items
-    for guid, block in existing_items:
-        if guid not in seen_guids:
-            final_items.append(block)
-            seen_guids.add(guid)
-
-    # 4. Generate Final Content
-    if not header:
-        # Generate Header if missing
+        # Check dupes
+        seen_guids = set()
+        for item in found_items:
+             guid_match = re.search(r'<guid.*?>(.*?)</guid>', item)
+             if guid_match:
+                 seen_guids.add(guid_match.group(1))
+             body_items.append(item)
+        
+        if filename not in seen_guids:
+            # Add NEW item to the TOP (Prepend)
+            body_items.insert(0, new_item)
+    else:
+        # Create Header
         header = f"""<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
   <channel>
     <title>{escape(program_name)}</title>
     <description>Podcast feed for {escape(program_name)}</description>
-    <link>{base_url}</link>
+    <link>{R2_PUBLIC_URL}</link>
     <language>ko-kr</language>
     <itunes:author>Record Stream</itunes:author>
-    <itunes:image href="{base_url}/image.jpg"/>
-"""
+    <itunes:image href="{R2_PUBLIC_URL}/image.jpg"/>"""
+        body_items.append(new_item)
 
-    rss_content = header.strip() + "\n\n" + "\n".join(final_items) + "\n" + footer
-
-    # Write to file
-    with open(rss_path, "w", encoding="utf-8") as f:
-        f.write(rss_content)
+    # 4. Upload Updated Feed
+    final_xml = header + "\n\n" + "\n".join(body_items) + "\n" + footer
     
-    print(f"[RSS Success] Feed updated: {rss_path} (Total items: {len(final_items)})")
+    try:
+        client.put_object(
+            Bucket=R2_BUCKET_NAME,
+            Key=feed_key,
+            Body=final_xml.encode('utf-8'),
+            ContentType="application/xml",
+            # ACL='public-read' # Not needed if bucket is public or behind worker
+        )
+        print(f"[RSS Success] Updated feed.xml on R2 for {program_name}")
+    except Exception as e:
+         print(f"[RSS Error] Failed to upload feed: {e}")
 
 if __name__ == "__main__":
-    # Test execution
-    import sys
-    if len(sys.argv) > 1:
-        generate_rss(sys.argv[1])
-    else:
-        print("Usage: python rss_gen.py <program_name>")
+    pass

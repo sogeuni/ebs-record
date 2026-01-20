@@ -4,22 +4,45 @@ import datetime
 import sys
 import os
 import time
-from rss_gen import generate_rss
+import boto3
+from botocore.exceptions import ClientError
+from rss_gen import update_rss_on_r2
+
+# Environment Variables for R2
+R2_ACCOUNT_ID = os.environ.get("R2_ACCOUNT_ID")
+R2_ACCESS_KEY_ID = os.environ.get("R2_ACCESS_KEY_ID")
+R2_SECRET_ACCESS_KEY = os.environ.get("R2_SECRET_ACCESS_KEY")
+R2_BUCKET_NAME = os.environ.get("R2_BUCKET_NAME")
+
+def get_r2_client():
+    if not all([R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY]):
+        print("[Upload Error] Missing R2 Credentials")
+        return None
+        
+    return boto3.client(
+        's3',
+        endpoint_url=f"https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com",
+        aws_access_key_id=R2_ACCESS_KEY_ID,
+        aws_secret_access_key=R2_SECRET_ACCESS_KEY
+    )
+
+def upload_to_r2(local_path, object_name):
+    client = get_r2_client()
+    if not client:
+        return False
+
+    try:
+        print(f"[Upload] Uploading {local_path} to R2 ({R2_BUCKET_NAME}/{object_name})...")
+        client.upload_file(local_path, R2_BUCKET_NAME, object_name)
+        print(f"[Upload] Success!")
+        return True
+    except ClientError as e:
+        print(f"[Upload Error] {e}")
+        return False
 
 def wait_for_start_time(scheduled_time_str=None):
     """
     Waits until the scheduled start time in KST (UTC+9).
-    If scheduled_time_str (HH:MM) is provided:
-      - Calculate target datetime in KST.
-      - If current KST < target: Wait difference.
-      - If current KST >= target: Return immediately (no wait).
-    If not provided:
-      - Implicit behavior: Wait for next minute :00 if close to minute end?
-      - Or just return immediately (logic removed in previous step, implicitly).
-      - Let's restore simple next-minute alignment if no time is given?
-      - User said "If start_time is missing, behave as before?"
-      - Actually, user just said "If before start_time, sleep; if after, run immediately".
-      - So I will implement exactly that.
     """
     kst_timezone = datetime.timezone(datetime.timedelta(hours=9))
     now_kst = datetime.datetime.now(kst_timezone)
@@ -112,7 +135,7 @@ def record_stream(url, duration, program_name, scheduled_time=None):
     print(f"Program: {program_name}")
     print(f"URL: {url}")
     print(f"Duration: {duration}s ({duration/60:.1f}min)")
-    print(f"Target Quality: {bitrate} Mono (Optimized for Voice)")
+    print(f"Target Quality: {bitrate} Mono")
     print(f"Output Path: {output_path}")
     print("=========================\n")
     
@@ -121,9 +144,35 @@ def record_stream(url, duration, program_name, scheduled_time=None):
         subprocess.run(command, check=True)
         print(f"\n[Success] Recording completed: {output_path}")
         
-        # Update RSS Feed
-        print(f"Updating RSS feed for: {program_name}")
-        generate_rss(program_name)
+        # Upload to R2
+        file_size = os.path.getsize(output_path)
+        object_name = f"{safe_program_name}/{filename}"
+        
+        if upload_to_r2(output_path, object_name):
+            # Update RSS Feed on R2
+            print(f"Updating RSS feed on R2 for: {program_name}")
+            
+            # Prepare metadata for RSS
+            # Timestamps
+            dt = datetime.datetime.strptime(timestamp, "%Y%m%d_%H%M%S")
+            pub_date = dt.strftime("%a, %d %b %Y %H:%M:%S +0900")
+            desc_date = dt.strftime('%Y-%m-%d %H:%M')
+            
+            metadata = {
+                'filename': filename,
+                'size': file_size,
+                'desc_date': desc_date,
+                'pub_date': pub_date
+            }
+            
+            update_rss_on_r2(program_name, metadata)
+            
+            # Cleanup Local File
+            print(f"[Cleanup] Removing local file: {output_path}")
+            os.remove(output_path)
+        else:
+            print("[Error] Failed to upload to R2. Keeping local file.")
+            sys.exit(1) # Fail workflow to notify user
         
     except subprocess.CalledProcessError as e:
         print(f"\n[Error] Recording failed: {e}")
