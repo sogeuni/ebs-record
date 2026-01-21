@@ -1,0 +1,46 @@
+{
+  "19:59": [
+    {
+      "program_name": "초급 일본어",
+      "scheduled_time": "05:00:30",
+      "duration": 1110,
+      "days": [0, 1, 2]
+    },
+    {
+      "program_name": "중급 일본어",
+      "scheduled_time": "05:00:30",
+      "duration": 1110,
+      "days": [3, 4, 5]
+    }
+  ],
+  "20:59": {
+    "program_name": "Easy Writing",
+    "scheduled_time": "06:00:30",
+    "duration": 1110
+  },
+  "21:19": {
+    "program_name": "귀가 트이는 영어",
+    "scheduled_time": "06:20:30",
+    "duration": 1110
+  },
+  "21:39": {
+    "program_name": "입이 트이는 영어",
+    "scheduled_time": "06:40:30",
+    "duration": 1110
+  },
+  "21:59": {
+    "program_name": "Start English",
+    "scheduled_time": "07:00:30",
+    "duration": 1110
+  },
+  "22:19": {
+    "program_name": "Easy English",
+    "scheduled_time": "07:20:30",
+    "duration": 1110
+  },
+  "22:39": {
+    "program_name": "Power English",
+    "scheduled_time": "07:40:30",
+    "duration": 1110
+  }
+}

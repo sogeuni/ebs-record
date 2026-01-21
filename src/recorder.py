@@ -4,6 +4,7 @@ import datetime
 import sys
 import os
 import time
+import json
 import boto3
 from botocore.exceptions import ClientError
 from rss_gen import update_rss_on_r2
@@ -80,6 +81,56 @@ def wait_for_start_time(scheduled_time_str=None):
         # Or simple immediate start.
         # Given "Safe to run late", we can just return.
         pass
+
+def resolve_schedule(schedule_file, time_slot):
+    """
+    Load schedule.json and find the program for the given time slot (HH:MM UTC).
+    Handles day-specific logic for arrays.
+    """
+    try:
+        with open(schedule_file, 'r', encoding='utf-8') as f:
+            schedule_map = json.load(f)
+    except FileNotFoundError:
+        print(f"[Schedule Error] Schedule file not found: {schedule_file}")
+        return None
+    except json.JSONDecodeError as e:
+        print(f"[Schedule Error] Invalid JSON in {schedule_file}: {e}")
+        return None
+
+    entry = schedule_map.get(time_slot)
+    if not entry:
+        print(f"[Schedule Error] No entry found for time slot: {time_slot}")
+        return None
+
+    # Determine current UTC Day (0=Monday ... 6=Sunday for Python datetime.weekday())
+    # BUT Cloudflare Crons & JS getUTCDay() use 0=Sunday, 6=Saturday.
+    # We must match the JSON 'days' array which uses JS convention (0,1,2 for Sun,Mon,Tue).
+    # Python weekday(): 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun.
+    # Conversion: (weekday + 1) % 7 => 0=Sun, 1=Mon, 2=Tue...
+    
+    python_weekday = datetime.datetime.utcnow().weekday()
+    current_utc_day = (python_weekday + 1) % 7
+    
+    print(f"[Schedule] Resolving for Time Slot: {time_slot} (UTC), Day: {current_utc_day} (Sun=0)")
+
+    task = None
+    if isinstance(entry, list):
+        # Array: Find matching day
+        for t in entry:
+            if 'days' not in t or current_utc_day in t['days']:
+                task = t
+                break
+    else:
+        # Object: Check days if present
+        if 'days' not in entry or current_utc_day in entry['days']:
+            task = entry
+
+    if not task:
+        print(f"[Schedule] No valid task found for today (Day {current_utc_day}).")
+        return None
+        
+    print(f"[Schedule] Matched Program: {task['program_name']}")
+    return task
 
 def record_stream(url, duration, program_name, scheduled_time=None):
     # Wait for precise start
@@ -184,11 +235,36 @@ def record_stream(url, duration, program_name, scheduled_time=None):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="FFmpeg Stream Recorder")
     
-    parser.add_argument("url", help="Streaming URL (e.g., m3u8)")
-    parser.add_argument("duration", type=int, help="Recording duration (seconds)")
-    parser.add_argument("program_name", help="Program name")
+    # Arguments
+    parser.add_argument("--url", help="Streaming URL (e.g., m3u8). Defaults to STREAM_URL env var.")
+    parser.add_argument("--program_name", help="Program name (Manual override)")
+    parser.add_argument("--duration", type=int, help="Recording duration (seconds)", default=10)
     parser.add_argument("--scheduled_time", help="Scheduled start time (HH:MM KST)", default=None)
+    
+    # New Arguments for Schedule-Based Execution
+    parser.add_argument("--schedule_file", help="Path to schedule.json", default="schedule.json")
+    parser.add_argument("--time_slot", help="Time slot key (HH:MM) to verify against schedule")
 
     args = parser.parse_args()
     
-    record_stream(args.url, args.duration, args.program_name, args.scheduled_time)
+    # Resolve Schedule if time_slot is provided
+    final_program_name = args.program_name
+    final_duration = args.duration
+    final_scheduled_time = args.scheduled_time
+    
+    if args.time_slot:
+        print(f"[Info] Running in Schedule Mode for Time Slot: {args.time_slot}")
+        task = resolve_schedule(args.schedule_file, args.time_slot)
+        if task:
+            final_program_name = task.get('program_name')
+            final_duration = task.get('duration', args.duration)
+            final_scheduled_time = task.get('scheduled_time', args.scheduled_time)
+        else:
+            print(f"[Info] No task skipped or not found. Exiting gracefully.")
+            sys.exit(0)
+            
+    if not final_program_name:
+        print("[Error] program_name is required (either via --program_name or --time_slot match).")
+        sys.exit(1)
+
+    record_stream(args.url, final_duration, final_program_name, final_scheduled_time)

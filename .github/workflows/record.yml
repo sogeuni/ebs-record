@@ -3,13 +3,17 @@ name: Recording
 on:
   workflow_dispatch:
     inputs:
+      time_slot:
+        description: "Scheduled Time Slot (UTC HH:MM) - Auto-filled by Worker"
+        required: false
+        default: ""
       program_name:
-        description: "Program Name"
-        required: true
-        default: "Test Program"
+        description: "Program Name (Manual Override)"
+        required: false
+        default: ""
       duration:
         description: "Duration (seconds)"
-        required: true
+        required: false
         default: "10"
       scheduled_time:
         description: "Scheduled Start Time (KST HH:MM or HH:MM:SS)"
@@ -52,5 +56,5 @@ jobs:
           # Ensure clean state
           find . -type d -name "__pycache__" -exec rm -rf {} +
 
-          # Run recorder with Secret Stream URL
-          python3 src/recorder.py "$STREAM_URL" ${{ inputs.duration }} "${{ inputs.program_name }}" --scheduled_time "${{ inputs.scheduled_time }}"
+          # Run recorder with Schedule Support
+          python3 src/recorder.py --time_slot "${{ inputs.time_slot }}" --program_name "${{ inputs.program_name }}" --duration ${{ inputs.duration }} --scheduled_time "${{ inputs.scheduled_time }}"

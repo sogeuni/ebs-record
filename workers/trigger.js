@@ -81,56 +81,20 @@ export default {
     const cron = event.cron;
     console.log(`[Scheduled] Triggered by cron: "${cron}"`);
     
-    let scheduleMap = {};
-    try {
-        if (env.SCHEDULE_JSON) {
-            scheduleMap = JSON.parse(env.SCHEDULE_JSON);
-        } else {
-             console.error("[Scheduled] SCHEDULE_JSON secret is missing!");
-             return;
-        }
-    } catch (e) {
-        console.error("[Scheduled] Failed to parse SCHEDULE_JSON", e);
-        return;
-    }
-
     // Determine current UTC time from scheduledTime
     const scheduledDate = new Date(event.scheduledTime);
     const utcHours = String(scheduledDate.getUTCHours()).padStart(2, '0');
     const utcMinutes = String(scheduledDate.getUTCMinutes()).padStart(2, '0');
     const timeKey = `${utcHours}:${utcMinutes}`;
-    const utcDay = scheduledDate.getUTCDay(); // 0=Sun ... 6=Sat
     
-    console.log(`[Scheduled] Time Key: ${timeKey}, UTC Day: ${utcDay}`);
+    console.log(`[Scheduled] Triggering Workflow for Time Slot: ${timeKey}`);
 
-    let entry = scheduleMap[timeKey];
-    let taskToRun = null;
+    const payload = {
+        time_slot: timeKey
+    };
 
-    if (entry) {
-        if (Array.isArray(entry)) {
-            // Find task matching current day
-            taskToRun = entry.find(t => !t.days || t.days.includes(utcDay));
-            if (!taskToRun) {
-                console.log(`[Scheduled] No matching task for day ${utcDay} in array list.`);
-            }
-        } else {
-            // Single task object
-            taskToRun = entry;
-            // Optional: Check 'days' if present even on single object
-            if (taskToRun.days && !taskToRun.days.includes(utcDay)) {
-                console.log(`[Scheduled] Task skipped: Day ${utcDay} not in ${taskToRun.days}`);
-                taskToRun = null;
-            }
-        }
-    }
-
-    if (taskToRun) {
-      console.log(`[Scheduled] Executing task for program: ${taskToRun.program_name}`);
-      ctx.waitUntil(triggerWorkflow(env, taskToRun).catch(err => {
-          console.error(`[Scheduled] Workflow trigger failed: ${err.message}`);
-      }));
-    } else {
-      console.log(`[Scheduled] No task found or matched for time: "${timeKey}"`);
-    }
+    ctx.waitUntil(triggerWorkflow(env, payload).catch(err => {
+        console.error(`[Scheduled] Workflow trigger failed: ${err.message}`);
+    }));
   }
 };
