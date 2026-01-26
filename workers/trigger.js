@@ -19,7 +19,9 @@ async function triggerWorkflow(env, inputs) {
       },
       body: JSON.stringify({
         ref: "main",
-        inputs: inputs
+        inputs: Object.fromEntries(
+          Object.entries(inputs).map(([k, v]) => [k, String(v)])
+        )
       })
     }
   );
