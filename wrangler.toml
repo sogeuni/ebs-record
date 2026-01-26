@@ -11,8 +11,6 @@ crons = ["59 19-21 * * SUN-FRI", "19 21-22 * * SUN-FRI", "39 21-22 * * SUN-FRI"]
 
 [vars]
 # GITHUB_TOKEN은 별도 설정 필요 (npx wrangler secret put GITHUB_TOKEN)
-# COMMON_STREAM_URL (npx wrangler secret put COMMON_STREAM_URL)
-# SCHEDULE_JSON (npx wrangler secret put SCHEDULE_JSON)
 
 [observability]
 [observability.logs]

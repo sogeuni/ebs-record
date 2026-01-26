@@ -267,4 +267,10 @@ if __name__ == "__main__":
         print("[Error] program_name is required (either via --program_name or --time_slot match).")
         sys.exit(1)
 
-    record_stream(args.url, final_duration, final_program_name, final_scheduled_time)
+    # Resolve URL: Argument > Environment Variable
+    final_url = args.url or os.environ.get("STREAM_URL")
+    if not final_url:
+        print("[Error] No stream URL provided via --url or STREAM_URL environment variable.")
+        sys.exit(1)
+
+    record_stream(final_url, final_duration, final_program_name, final_scheduled_time)

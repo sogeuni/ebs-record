@@ -1,20 +1,11 @@
-// Schedule Configuration is now in wrangler.toml [vars] SCHEDULE_JSON
-
 /**
  * Common function to trigger GitHub Workflow
  */
-async function triggerWorkflow(env, { program_name, stream_url, duration, scheduled_time }) {
+async function triggerWorkflow(env, inputs) {
   const githubToken = env.GITHUB_TOKEN;
   if (!githubToken) {
     console.error("GITHUB_TOKEN not configured");
     throw new Error("Server Error: GITHUB_TOKEN not configured");
-  }
-
-  // Use task-specific URL or Fallback to Common URL
-  const finalStreamUrl = stream_url || env.COMMON_STREAM_URL;
-
-  if (!finalStreamUrl) {
-      throw new Error("No stream_url provided and no COMMON_STREAM_URL configured.");
   }
 
   const response = await fetch(
@@ -28,12 +19,7 @@ async function triggerWorkflow(env, { program_name, stream_url, duration, schedu
       },
       body: JSON.stringify({
         ref: "main",
-        inputs: {
-          program_name,
-          stream_url: finalStreamUrl,
-          duration: String(duration),
-          scheduled_time: scheduled_time || "" // KST HH:MM
-        }
+        inputs: inputs
       })
     }
   );
@@ -45,35 +31,29 @@ async function triggerWorkflow(env, { program_name, stream_url, duration, schedu
     throw new Error(errorMsg);
   }
 
-  console.log(`Triggered workflow for ${program_name}`);
+  console.log(`Triggered workflow with inputs: ${JSON.stringify(inputs)}`);
   return "Workflow triggered successfully";
 }
 
 export default {
-  // 1. HTTP Request Handler (Trigger Only)
+  // 1. HTTP Request Handler (Manual Trigger)
   async fetch(request, env) {
     const url = new URL(request.url);
 
     // POST /: Trigger workflow manually
     if (request.method === "POST" && url.pathname === "/") {
         try {
-            const { program_name, stream_url, duration } = await request.json();
-    
-            if (!program_name || !duration) {
-                return new Response(
-                    "Missing required fields: program_name, duration",
-                    { status: 400 }
-                );
-            }
-    
-            const result = await triggerWorkflow(env, { program_name, stream_url, duration });
+            const payload = await request.json();
+            
+            // Allow manual override of any inputs (program_name, time_slot, etc.)
+            const result = await triggerWorkflow(env, payload);
             return new Response(result, { status: 200 });
         } catch (e) {
             return new Response(`Error: ${e.message}`, { status: 500 });
         }
     }
 
-    return new Response("EBS Record Worker Running (Secure Mode)", { status: 200 });
+    return new Response("EBS Record Worker Running (Trigger Only)", { status: 200 });
   },
 
   // 2. Scheduled Cron Handler
@@ -87,13 +67,12 @@ export default {
     const utcMinutes = String(scheduledDate.getUTCMinutes()).padStart(2, '0');
     const timeKey = `${utcHours}:${utcMinutes}`;
     
-    console.log(`[Scheduled] Triggering Workflow for Time Slot: ${timeKey}`);
+    console.log(`[Scheduled] Sending Trigger for Time Slot: ${timeKey}`);
 
-    const payload = {
+    // Just send the time_slot. The GitHub Action (recorder.py) will handle schedule resolution.
+    ctx.waitUntil(triggerWorkflow(env, {
         time_slot: timeKey
-    };
-
-    ctx.waitUntil(triggerWorkflow(env, payload).catch(err => {
+    }).catch(err => {
         console.error(`[Scheduled] Workflow trigger failed: ${err.message}`);
     }));
   }
