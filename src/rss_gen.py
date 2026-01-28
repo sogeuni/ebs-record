@@ -41,7 +41,7 @@ def update_rss_on_r2(program_name, file_metadata):
     if not client:
         return
 
-    safe_program_name = program_name.replace(" ", "-")
+    safe_program_name = program_name.replace(" ", "-").lower()
     feed_key = f"{safe_program_name}/feed.xml"
     
     # 1. Fetch Existing Feed
@@ -65,11 +65,16 @@ def update_rss_on_r2(program_name, file_metadata):
     desc_date = file_metadata['desc_date']
     pub_date = file_metadata['pub_date']
     
+    # New Format: Program Name (YYYY-MM-DD)
+    # Extract date part from desc_date (YYYY-MM-DD HH:MM)
+    date_only = desc_date.split(' ')[0]
+    display_title = f"{program_name} ({date_only})"
+
     # R2 Public URL
     file_url = f"{R2_PUBLIC_URL}/{quote(safe_program_name)}/{quote(filename)}"
 
     new_item = f"""    <item>
-      <title>{escape(filename)}</title>
+      <title>{escape(display_title)}</title>
       <description>Recorded on {desc_date}</description>
       <pubDate>{pub_date}</pubDate>
       <enclosure url="{file_url}" length="{file_size}" type="audio/mp4"/>
@@ -100,16 +105,32 @@ def update_rss_on_r2(program_name, file_metadata):
             if split_idx != -1:
                 header = existing_content[:split_idx].strip()
             else:
-                 # Fallback
-                 header = ""
+                # Fallback
+                header = ""
 
-        # Check dupes
+        # Check dupes and Normalize existing titles
         seen_guids = set()
         for item in found_items:
-             guid_match = re.search(r'<guid.*?>(.*?)</guid>', item)
-             if guid_match:
-                 seen_guids.add(guid_match.group(1))
-             body_items.append(item)
+            guid_match = re.search(r'<guid.*?>(.*?)</guid>', item)
+            if guid_match:
+                guid = guid_match.group(1)
+                seen_guids.add(guid)
+                
+                # If title is in filename format, convert it
+                # Example: Easy-English_20260128_072030.m4a -> Easy English (2026-01-28)
+                title_match = re.search(r'<title>(.*?)</title>', item)
+                if title_match:
+                    current_title = title_match.group(1)
+                    # Simple heuristic: if it ends with .m4a and contains _YYYYMMDD_
+                    if current_title.endswith('.m4a') and '_' in current_title:
+                        # Try to extract date
+                        date_parts = re.search(r'_(\d{4})(\d{2})(\d{2})_', current_title)
+                        if date_parts:
+                            y, m, d = date_parts.groups()
+                            new_title = f"{program_name} ({y}-{m}-{d})"
+                            item = item.replace(f"<title>{current_title}</title>", f"<title>{escape(new_title)}</title>")
+            
+            body_items.append(item)
         
         if filename not in seen_guids:
             # Add NEW item to the TOP (Prepend)

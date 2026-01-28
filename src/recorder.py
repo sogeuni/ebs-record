@@ -140,8 +140,8 @@ def record_stream(url, duration, program_name, scheduled_time=None):
     kst_timezone = datetime.timezone(datetime.timedelta(hours=9))
     timestamp = datetime.datetime.now(kst_timezone).strftime("%Y%m%d_%H%M%S")
     
-    # Replace spaces in program name with hyphens
-    safe_program_name = program_name.replace(" ", "-")
+    # Replace spaces in program name with hyphens and lowercase
+    safe_program_name = program_name.replace(" ", "-").lower()
     
     # Define output directory: recordings/program-name/
     base_dir = "recordings"
